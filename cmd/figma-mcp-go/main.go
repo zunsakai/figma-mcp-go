@@ -11,7 +11,7 @@ import (
 
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/vkhanhqui/figma-mcp-go/internal"
+	"github.com/zunsakai/figma-mcp-go/internal"
 )
 
 // version is injected at build time:
@@ -22,7 +22,7 @@ var logger = log.New(os.Stderr, "", 0)
 
 func main() {
 	ip := flag.String("ip", "127.0.0.1", "IP address to listen on (use 0.0.0.0 to accept remote connections)")
-	port := flag.Int("port", 1994, "port to listen on")
+	port := flag.Int("port", 34462, "port to listen on")
 	flag.Parse()
 
 	parsedIP := net.ParseIP(*ip)

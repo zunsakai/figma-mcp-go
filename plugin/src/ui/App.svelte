@@ -12,7 +12,7 @@
   // Persisted via figma.clientStorage (through plugin core) because localStorage
   // is unavailable inside Figma's data: URL sandbox.
   let serverHost = "127.0.0.1";
-  let serverPort = "1994";
+  let serverPort = "34462";
 
   let showSettings = false;
   let editHost = serverHost;
@@ -78,7 +78,7 @@
 
     if (msg.type === "ws_config") {
       serverHost = msg.host ?? "127.0.0.1";
-      serverPort = msg.port ?? "1994";
+      serverPort = msg.port ?? "34462";
       if (!configLoaded) {
         configLoaded = true;
         connect();
@@ -113,7 +113,7 @@
   function applySettings() {
     serverHost = editHost.trim() || "127.0.0.1";
     const p = parseInt(editPort, 10);
-    serverPort = p > 0 && p <= 65535 ? String(p) : "1994";
+    serverPort = p > 0 && p <= 65535 ? String(p) : "34462";
     // Persist via plugin core (figma.clientStorage), since localStorage is
     // unavailable in Figma's data: URL environment.
     parent.postMessage(
@@ -195,7 +195,7 @@
           <input
             class="port-input"
             bind:value={editPort}
-            placeholder="1994"
+            placeholder="34462"
             on:keydown={handleKeydown}
           />
           <button class="apply-btn" on:click={applySettings} title="Apply">✓</button>
@@ -217,19 +217,19 @@
     <div class="footer-row">
       <a
         class="author"
-        href="https://github.com/vkhanhqui/figma-mcp-go"
+        href="https://github.com/zunsakai/figma-mcp-go"
         target="_blank"
       >
         <img
           src="https://avatars.githubusercontent.com/u/64468109?v=4"
           alt="avatar"
         />
-        vkhanhqui
+        zunsakai
       </a>
       <div class="links">
         <a
           class="footer-link"
-          href="https://github.com/vkhanhqui/figma-mcp-go/issues/new?labels=bug"
+          href="https://github.com/zunsakai/figma-mcp-go/issues/new?labels=bug"
           target="_blank"
           title="Report a bug"
         >
@@ -240,7 +240,7 @@
         </a>
         <a
           class="footer-link"
-          href="https://github.com/vkhanhqui/figma-mcp-go/issues/new?labels=enhancement&title=Feature+request%3A+"
+          href="https://github.com/zunsakai/figma-mcp-go/issues/new?labels=enhancement&title=Feature+request%3A+"
           target="_blank"
           title="Suggest a feature"
         >

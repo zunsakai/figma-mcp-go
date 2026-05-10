@@ -291,8 +291,22 @@ func ValidateRPC(tool string, nodeIDs []string, params map[string]interface{}) s
 		if !ValidNodeID(nodeIDs[0]) {
 			return fmt.Sprintf("nodeId must use colon format e.g. 4029:12345, got: %s", nodeIDs[0])
 		}
-		if color, _ := params["color"].(string); color == "" {
-			return "color is required (hex string e.g. #FF5733)"
+		fillType, _ := params["type"].(string)
+		if fillType == "" {
+			fillType = "SOLID"
+		}
+		switch fillType {
+		case "SOLID":
+			if color, _ := params["color"].(string); color == "" {
+				return "color is required for SOLID fill (hex string e.g. #FF5733)"
+			}
+		case "GRADIENT_LINEAR", "GRADIENT_RADIAL", "GRADIENT_ANGULAR", "GRADIENT_DIAMOND":
+			stops, ok := params["gradientStops"].([]any)
+			if !ok || len(stops) == 0 {
+				return "gradientStops array is required for gradient fills"
+			}
+		default:
+			return fmt.Sprintf("unsupported fill type: %s", fillType)
 		}
 		if mode, ok := params["mode"].(string); ok && mode != "replace" && mode != "append" {
 			return "mode must be 'replace' or 'append'"

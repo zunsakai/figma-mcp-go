@@ -26,24 +26,42 @@ func registerWriteModifyTools(s *server.MCPServer, node *Node) {
 	})
 
 	s.AddTool(mcp.NewTool("set_fills",
-		mcp.WithDescription("Set the fill color on a single node (takes one nodeId, not an array). Use mode='append' to stack a new fill on top of existing fills instead of replacing them."),
+		mcp.WithDescription("Set the fill color or gradient on a single node (takes one nodeId, not an array). Use mode='append' to stack a new fill on top of existing fills instead of replacing them."),
 		mcp.WithString("nodeId",
 			mcp.Required(),
 			mcp.Description("Node ID in colon format e.g. '4029:12345'"),
 		),
+		mcp.WithString("type",
+			mcp.Description("Fill type: SOLID (default), GRADIENT_LINEAR, GRADIENT_RADIAL, GRADIENT_ANGULAR, GRADIENT_DIAMOND"),
+		),
 		mcp.WithString("color",
-			mcp.Required(),
-			mcp.Description("Fill color as hex: #RRGGBB e.g. #FF5733 or #RRGGBBAA e.g. #FF573380 for 50% alpha"),
+			mcp.Description("Fill color as hex (required if type is SOLID): #RRGGBB e.g. #FF5733 or #RRGGBBAA e.g. #FF573380"),
 		),
 		mcp.WithNumber("opacity", mcp.Description("Fill opacity 0–1 (default 1). Combines multiplicatively with any alpha in the color hex.")),
+		mcp.WithArray("gradientStops",
+			mcp.Description(`Array of stop objects for gradients: [{"color": "#FF0000", "position": 0}, {"color": "#00FF00", "position": 1}]`),
+			mcp.Items(map[string]any{"type": "object"}),
+		),
+		mcp.WithNumber("angle", mcp.Description("Gradient rotation angle in degrees (0 = Left to Right, 90 = Top to Bottom, 180 = Right to Left, etc.)")),
 		mcp.WithString("mode", mcp.Description("'replace' (default) overwrites all existing fills; 'append' stacks this fill on top of existing ones")),
+
 	), func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		nodeID, _ := req.GetArguments()["nodeId"].(string)
-		params := map[string]interface{}{
-			"color": req.GetArguments()["color"],
+		params := map[string]interface{}{}
+		if c, ok := req.GetArguments()["color"]; ok {
+			params["color"] = c
+		}
+		if t, ok := req.GetArguments()["type"].(string); ok {
+			params["type"] = t
 		}
 		if op, ok := req.GetArguments()["opacity"].(float64); ok {
 			params["opacity"] = op
+		}
+		if gs, ok := req.GetArguments()["gradientStops"].([]any); ok {
+			params["gradientStops"] = gs
+		}
+		if a, ok := req.GetArguments()["angle"].(float64); ok {
+			params["angle"] = a
 		}
 		if m, ok := req.GetArguments()["mode"].(string); ok {
 			params["mode"] = m

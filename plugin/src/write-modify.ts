@@ -1,5 +1,5 @@
 import { getBounds } from "./serializers";
-import { makeSolidPaint, getParentNode, applyAutoLayout } from "./write-helpers";
+import { makeSolidPaint, getParentNode, applyAutoLayout, hexToRgb } from "./write-helpers";
 
 export const handleWriteModifyRequest = async (request: any) => {
   switch (request.type) {
@@ -30,7 +30,43 @@ export const handleWriteModifyRequest = async (request: any) => {
       const node = await figma.getNodeByIdAsync(nodeId);
       if (!node) throw new Error(`Node not found: ${nodeId}`);
       if (!("fills" in node)) throw new Error(`Node ${nodeId} does not support fills`);
-      const newFill = makeSolidPaint(p.color, p.opacity != null ? p.opacity : undefined);
+
+      const type = p.type || "SOLID";
+      let newFill: Paint;
+
+      if (type === "SOLID") {
+        newFill = makeSolidPaint(p.color, p.opacity != null ? p.opacity : undefined);
+      } else if (type.startsWith("GRADIENT_")) {
+        const stops = p.gradientStops || [];
+        if (!stops.length) throw new Error("gradientStops required for gradient fills");
+        const gradientStops = stops.map((s: any) => {
+          const rgba = typeof s.color === "string" ? hexToRgb(s.color) : s.color;
+          return {
+            color: { r: rgba.r, g: rgba.g, b: rgba.b, a: rgba.a != null ? rgba.a : 1 },
+            position: Number(s.position)
+          };
+        });
+        let transform = p.gradientTransform || [[1, 0, 0], [0, 1, 0]];
+        if (p.angle != null) {
+          const rad = p.angle * Math.PI / 180;
+          const cos = Math.cos(rad);
+          const sin = Math.sin(rad);
+          transform = [
+            [cos, sin, 0.5 - 0.5 * cos - 0.5 * sin],
+            [-sin, cos, 0.5 + 0.5 * sin - 0.5 * cos]
+          ];
+        }
+
+        newFill = {
+          type,
+          gradientStops,
+          gradientTransform: transform
+        } as GradientPaint;
+        if (p.opacity != null) newFill.opacity = p.opacity;
+      } else {
+        throw new Error(`Unsupported fill type: ${type}`);
+      }
+
       (node as any).fills = p.mode === "append"
         ? [...((node as any).fills as Paint[]), newFill]
         : [newFill];
