@@ -22,7 +22,7 @@ func addReadDesignStrategy(s *server.MCPServer) {
 2. Use get_pages to list all pages without loading their full trees
 3. Use get_design_context (depth=2, detail=compact) for a token-efficient summary of the current selection or page
    - detail=minimal: id/name/type/bounds only (~5% tokens)
-   - detail=compact: + fills/strokes/opacity (~30% tokens)
+   - detail=compact: + fills/strokes/effects/opacity (~30% tokens)
    - detail=full: everything, default (100% tokens)
    - dedupe_components=true: INSTANCE nodes are collapsed to compact stubs (mainComponentId + componentProperties overrides);
      unique component structures are collected once in a top-level componentDefs map.

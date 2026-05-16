@@ -12,24 +12,73 @@ export const toHex = (color: any) => {
   return `#${[r, g, b].map((v) => v.toString(16).padStart(2, "0")).join("")}`;
 };
 
+const toHexWithAlpha = (color: any, alpha?: number) => {
+  const hex = toHex(color);
+  const opacity = alpha != null ? alpha : color.a != null ? color.a : 1;
+  if (opacity === 1) return hex;
+  return hex + Math.round(opacity * 255).toString(16).padStart(2, "0");
+};
+
+const serializeGradientPaint = (paint: any) => {
+  const result: any = {
+    type: paint.type,
+    gradientStops: (paint.gradientStops || []).map((stop: any) => ({
+      color: toHexWithAlpha(stop.color),
+      position: stop.position,
+    })),
+    gradientTransform: paint.gradientTransform,
+  };
+  if (paint.opacity != null) result.opacity = paint.opacity;
+  if (paint.visible != null) result.visible = paint.visible;
+  if (paint.blendMode) result.blendMode = paint.blendMode;
+  return result;
+};
+
+const serializePaint = (paint: any) => {
+  if (paint.type === "SOLID" && "color" in paint) {
+    return toHexWithAlpha(paint.color, paint.opacity);
+  }
+  if (typeof paint.type === "string" && paint.type.startsWith("GRADIENT_")) {
+    return serializeGradientPaint(paint);
+  }
+  return undefined;
+};
+
 export const serializePaints = (paints: any) => {
   if (isMixed(paints)) return "mixed";
 
   if (!paints || !Array.isArray(paints)) return undefined;
 
   const result = paints
-    .filter((paint: any) => paint.type === "SOLID" && "color" in paint)
-    .map((paint: any) => {
-      const hex = toHex(paint.color);
-      const opacity = paint.opacity != null ? paint.opacity : 1;
-      if (opacity === 1) return hex;
-      return (
-        hex +
-        Math.round(opacity * 255)
-          .toString(16)
-          .padStart(2, "0")
-      );
-    });
+    .map(serializePaint)
+    .filter((paint: any) => paint !== undefined);
+
+  return result.length > 0 ? result : undefined;
+};
+
+export const serializeEffects = (effects: any) => {
+  if (isMixed(effects)) return "mixed";
+  if (!effects || !Array.isArray(effects)) return undefined;
+
+  const result = effects.map((effect: any) => {
+    const serialized: any = {
+      type: effect.type,
+    };
+    if (effect.visible != null) serialized.visible = effect.visible;
+    if (effect.radius != null) serialized.radius = effect.radius;
+    if (effect.blendMode) serialized.blendMode = effect.blendMode;
+    if (effect.blurType) serialized.blurType = effect.blurType;
+
+    if (effect.type === "DROP_SHADOW" || effect.type === "INNER_SHADOW") {
+      if (effect.color) serialized.color = toHexWithAlpha(effect.color);
+      if (effect.offset) serialized.offset = effect.offset;
+      if (effect.spread != null) serialized.spread = effect.spread;
+      if (effect.showShadowBehindNode != null) {
+        serialized.showShadowBehindNode = effect.showShadowBehindNode;
+      }
+    }
+    return serialized;
+  });
 
   return result.length > 0 ? result : undefined;
 };
@@ -72,6 +121,15 @@ export const serializeStyles = async (node: any) => {
   if ("cornerRadius" in node) {
     const cr = isMixed(node.cornerRadius) ? "mixed" : node.cornerRadius;
     if (cr !== 0) styles.cornerRadius = cr;
+  }
+
+  if ("effects" in node) {
+    if (node.effectStyleId && typeof node.effectStyleId === "string") {
+      const style = await figma.getStyleByIdAsync(node.effectStyleId);
+      if (style) styles.effectStyle = style.name;
+    }
+    const effects = serializeEffects(node.effects);
+    if (effects !== undefined) styles.effects = effects;
   }
 
   if ("paddingLeft" in node) {

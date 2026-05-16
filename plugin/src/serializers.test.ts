@@ -3,6 +3,7 @@ import {
   isMixed,
   toHex,
   serializePaints,
+  serializeEffects,
   getBounds,
   deduplicateStyles,
   serializeVariableValue,
@@ -75,8 +76,8 @@ describe("serializePaints", () => {
   it("returns undefined for empty array", () => {
     expect(serializePaints([])).toBeUndefined();
   });
-  it("filters out non-SOLID paints", () => {
-    const paints = [{ type: "IMAGE" }, { type: "GRADIENT_LINEAR" }];
+  it("filters out unsupported paints", () => {
+    const paints = [{ type: "IMAGE" }];
     expect(serializePaints(paints)).toBeUndefined();
   });
   it("serializes a solid paint with opacity 1 as plain hex", () => {
@@ -99,6 +100,69 @@ describe("serializePaints", () => {
       { type: "SOLID", color: { r: 0, g: 1, b: 0 } },
     ];
     expect(serializePaints(paints)).toEqual(["#ff0000", "#00ff00"]);
+  });
+  it("serializes gradient paints with stops and transform", () => {
+    const transform = [[1, 0, 0], [0, 1, 0]];
+    const paints = [{
+      type: "GRADIENT_LINEAR",
+      opacity: 0.75,
+      visible: true,
+      blendMode: "NORMAL",
+      gradientStops: [
+        { color: { r: 1, g: 0, b: 0, a: 1 }, position: 0 },
+        { color: { r: 0, g: 0, b: 1, a: 0.5 }, position: 1 },
+      ],
+      gradientTransform: transform,
+    }];
+    expect(serializePaints(paints)).toEqual([{
+      type: "GRADIENT_LINEAR",
+      opacity: 0.75,
+      visible: true,
+      blendMode: "NORMAL",
+      gradientStops: [
+        { color: "#ff0000", position: 0 },
+        { color: "#0000ff80", position: 1 },
+      ],
+      gradientTransform: transform,
+    }]);
+  });
+});
+
+// ── serializeEffects ─────────────────────────────────────────────────────────
+
+describe("serializeEffects", () => {
+  it("returns undefined for empty effects", () => {
+    expect(serializeEffects([])).toBeUndefined();
+  });
+
+  it("serializes layer and background blur effects", () => {
+    expect(serializeEffects([
+      { type: "LAYER_BLUR", radius: 12, visible: true, blurType: "NORMAL" },
+      { type: "BACKGROUND_BLUR", radius: 20, visible: false },
+    ])).toEqual([
+      { type: "LAYER_BLUR", radius: 12, visible: true, blurType: "NORMAL" },
+      { type: "BACKGROUND_BLUR", radius: 20, visible: false },
+    ]);
+  });
+
+  it("serializes shadow effects with color, offset, and spread", () => {
+    expect(serializeEffects([{
+      type: "DROP_SHADOW",
+      color: { r: 0, g: 0, b: 0, a: 0.25 },
+      offset: { x: 0, y: 4 },
+      radius: 8,
+      spread: 2,
+      visible: true,
+      blendMode: "NORMAL",
+    }])).toEqual([{
+      type: "DROP_SHADOW",
+      color: "#00000040",
+      offset: { x: 0, y: 4 },
+      radius: 8,
+      spread: 2,
+      visible: true,
+      blendMode: "NORMAL",
+    }]);
   });
 });
 
@@ -331,6 +395,17 @@ describe("serializeStyles", () => {
     const result = await serializeStyles(node);
     expect(result.padding).toEqual({ top: 5, right: 20, bottom: 15, left: 10 });
   });
+
+  it("includes effects and effectStyle", async () => {
+    mockGetStyleByIdAsync = async (id) => (id === "effect-1" ? { name: "Blur/Glass" } : null);
+    const node = {
+      effects: [{ type: "BACKGROUND_BLUR", radius: 16, visible: true }],
+      effectStyleId: "effect-1",
+    };
+    const result = await serializeStyles(node);
+    expect(result.effectStyle).toBe("Blur/Glass");
+    expect(result.effects).toEqual([{ type: "BACKGROUND_BLUR", radius: 16, visible: true }]);
+  });
 });
 
 // ── serializeText ─────────────────────────────────────────────────────────────
@@ -497,5 +572,44 @@ describe("serializeNode", () => {
     const result = await serializeNode(node);
     expect(result.children).toHaveLength(1);
     expect(result.children[0].id).toBe("1:4");
+  });
+
+  it("includes gradient fills and blur effects on child nodes", async () => {
+    const gradientTransform = [[1, 0, 0], [0, 1, 0]];
+    const node = {
+      id: "1:5",
+      name: "Frame",
+      type: "FRAME",
+      x: 0, y: 0, width: 200, height: 200,
+      children: [
+        {
+          id: "1:6",
+          name: "Glass",
+          type: "RECTANGLE",
+          x: 10, y: 10, width: 50, height: 50,
+          fills: [{
+            type: "GRADIENT_LINEAR",
+            gradientStops: [
+              { color: { r: 1, g: 1, b: 1, a: 0.8 }, position: 0 },
+              { color: { r: 0, g: 0.5, b: 1, a: 1 }, position: 1 },
+            ],
+            gradientTransform,
+          }],
+          effects: [{ type: "LAYER_BLUR", radius: 6, visible: true }],
+        },
+      ],
+    };
+    const result = await serializeNode(node);
+    expect(result.children[0].styles.fills).toEqual([{
+      type: "GRADIENT_LINEAR",
+      gradientStops: [
+        { color: "#ffffffcc", position: 0 },
+        { color: "#0080ff", position: 1 },
+      ],
+      gradientTransform,
+    }]);
+    expect(result.children[0].styles.effects).toEqual([
+      { type: "LAYER_BLUR", radius: 6, visible: true },
+    ]);
   });
 });
